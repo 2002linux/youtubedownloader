@@ -1,0 +1,11 @@
+[package]
+name = "youtubedownloader"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+reqwest = { version = "0.11", features = ["json"] } # reqwest with JSON parsing support
+futures = "0.3" # for our async / await blocks
+tokio = { version = "1.12.0", features = ["full"] } # for our async runtime
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+serde = "1.0.217"
