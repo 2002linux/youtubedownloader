@@ -7,6 +7,7 @@ This project is a simple YouTube downloader implemented in Rust. It uses externa
 - Downloads YouTube videos using `yt-dlp`.
     
 - Supports video conversion and processing via `ffmpeg`.
+- It will get the highest quality it can get for the videos to download.
     
 
 ## Requirements
