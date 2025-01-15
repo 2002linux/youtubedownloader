@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::env;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // getting the prompt the user for a YouTube URL
+    // Prompt the user for a YouTube URL
     print!("Enter the YouTube video URL: ");
     io::stdout().flush()?; // Ensure the prompt is displayed
     let mut url = String::new();
@@ -17,12 +17,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    // then adding the yt-dlp binary path and ffmpeg binary path
+    // Define paths to yt-dlp and ffmpeg binaries
     let current_dir = env::current_dir()?; // Get the current working directory
     let yt_dlp_path = current_dir.join("yt-dlp.exe"); // Relative path to yt-dlp.exe
     let ffmpeg_path = current_dir.join("ffmpeg").join("ffmpeg.exe"); // Relative path to ffmpeg.exe
 
-    // adding an error handling to Check if yt-dlp.exe exists
+    // Check if yt-dlp.exe exists
     if !yt_dlp_path.exists() {
         eprintln!("Error: yt-dlp.exe not found at {}", yt_dlp_path.display());
         return Ok(());
@@ -34,12 +34,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    // Auto-update yt-dlp before proceeding
+    println!("Checking for yt-dlp updates...");
+    let update_status = Command::new(&yt_dlp_path)
+        .arg("-U") // Update option for yt-dlp
+        .status();
+
+    match update_status {
+        Ok(status) if status.success() => {
+            println!("yt-dlp updated successfully.");
+        }
+        Ok(_) => {
+            eprintln!("Warning: yt-dlp update check failed. Proceeding with the current version.");
+        }
+        Err(e) => {
+            eprintln!("Error: Failed to update yt-dlp. Details: {}", e);
+            return Ok(());
+        }
+    }
+
+    // Define the output directory
     let output_path = Path::new("."); // Save in the current directory
 
-    // then let's run yt-dlp with the ffmpeg binary
+    // Run yt-dlp with the ffmpeg binary
     println!("Downloading video from: {}", url);
     let output_template = format!("{}/%(title)s.%(ext)s", output_path.display());
-    let status = Command::new(yt_dlp_path)
+    let status = Command::new(&yt_dlp_path)
         .args(&[
             "-f", "bestvideo+bestaudio/best", // Best video + audio
             "-o", &output_template,           // Output template
@@ -48,7 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ])
         .status();
 
-    // last is to Check the status and handle errors
+    // Check the status and handle errors
     match status {
         Ok(status) if status.success() => {
             println!("Download complete! Saved to {}", output_path.display());
