@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use clap::Parser;
+use indicatif::{ProgressBar, ProgressStyle};
 use log::{error, info, warn};
 use regex::Regex;
 use reqwest::blocking::Client;
@@ -123,6 +124,7 @@ fn prompt_user(prompt: &str) -> Result<String> {
 
 /// Executes yt-dlp to download a video from the given URL.
 /// This version spawns the process and streams stdout and stderr in real time.
+/// A progress bar is displayed by parsing progress messages from yt-dlp.
 fn download_video(
     yt_dlp_path: &Path,
     ffmpeg_path: &Path,
@@ -149,6 +151,7 @@ fn download_video(
         "-o", &output_template,
         "--ffmpeg-location", ffmpeg_path.to_str().unwrap(),
         "--user-agent", user_agent,
+        "--newline", // Ensure progress messages are printed on new lines
     ]);
     for (key, value) in headers {
         cmd.args(&["--add-header", &format!("{}: {}", key, value)]);
@@ -162,10 +165,16 @@ fn download_video(
 
     let mut child = cmd.spawn().with_context(|| "Failed to spawn yt-dlp process")?;
 
-    // Handle stdout.
-    let stdout = child.stdout.take().expect("Failed to capture stdout");
-    let stderr = child.stderr.take().expect("Failed to capture stderr");
+    // Create a progress bar with a range from 0 to 100.
+    let pb = ProgressBar::new(100);
+    pb.set_style(
+        ProgressStyle::default_bar()
+            .template("{bar:40.cyan/blue} {pos:>3}%")?
+            .progress_chars("##-"),
+    );
 
+    // Spawn a thread to handle stdout.
+    let stdout = child.stdout.take().expect("Failed to capture stdout");
     let stdout_thread = thread::spawn(move || {
         let reader = BufReader::new(stdout);
         for line in reader.lines() {
@@ -175,17 +184,33 @@ fn download_video(
         }
     });
 
+    // Spawn a thread to handle stderr and update the progress bar.
+    let pb_clone = pb.clone();
+    let stderr = child.stderr.take().expect("Failed to capture stderr");
     let stderr_thread = thread::spawn(move || {
         let reader = BufReader::new(stderr);
+        // Regex to capture progress percentage from lines like: "[download]  45.3%"
+        let progress_regex = Regex::new(r"\[download\]\s+(\d+\.\d+)%").unwrap();
         for line in reader.lines() {
             if let Ok(line) = line {
-                eprintln!("{}", line);
+                if let Some(caps) = progress_regex.captures(&line) {
+                    if let Some(percent_match) = caps.get(1) {
+                        if let Ok(percent) = percent_match.as_str().parse::<f64>() {
+                            // Update progress bar (round to nearest integer)
+                            pb_clone.set_position(percent.round() as u64);
+                        }
+                    }
+                } else {
+                    // If the line doesn't match progress info, print it to stderr.
+                    eprintln!("{}", line);
+                }
             }
         }
     });
 
     // Wait for the process to finish.
     let status = child.wait().with_context(|| "Failed to wait on yt-dlp process")?;
+    pb.finish_with_message("Download complete!");
 
     // Ensure the output threads finish.
     stdout_thread.join().expect("Stdout thread panicked");
