@@ -13,8 +13,6 @@ use std::process::{Command, Stdio};
 use std::thread;
 use std::time::Duration;
 use url::Url;
-
-// For extracting the downloaded ffmpeg zip archive.
 use std::io::Cursor;
 use zip::ZipArchive;
 
@@ -266,8 +264,6 @@ fn prompt_user(prompt: &str) -> Result<String> {
     io::stdin().read_line(&mut input)?;
     Ok(input.trim().to_string())
 }
-
-/// Executes yt-dlp to download a video from the given URL.
 /// It uses the resume flag (`-c`) and forces the output format to MP4.
 fn download_video(
     yt_dlp_path: &Path,
@@ -366,8 +362,6 @@ fn download_video(
     }
 
     info!("Download complete! Saved to {}", output.display());
-    // At this point, the video file has been fully written, renamed (if needed),
-    // and is no longer connected (i.e. locked or held open) by the downloader.
     info!("The downloaded video is now detached from the downloader.");
     Ok(())
 }
@@ -422,9 +416,6 @@ fn main() -> Result<()> {
     } else {
         args.ffmpeg_path.clone()
     };
-
-    // Use the provided output directory.
-    // Since we changed the default to "downloaded_videos", we now ensure it exists.
     let output = if args.output.is_relative() {
         exe_dir.join(&args.output)
     } else {
@@ -449,8 +440,6 @@ fn main() -> Result<()> {
         update_yt_dlp(&yt_dlp_path)?;
         update_ffmpeg(&ffmpeg_path)?;
     }
-
-    // Determine the mode: non-interactive (batch) or interactive.
     if args.non_interactive || !args.urls.is_empty() {
         if args.urls.is_empty() {
             error!("Non-interactive mode requires at least one URL.");
@@ -464,7 +453,6 @@ fn main() -> Result<()> {
             download_video_robust(&yt_dlp_path, &ffmpeg_path, &output, &url, args.retry_delay)?;
         }
     } else {
-        // Interactive mode.
         loop {
             let url = prompt_user("Enter the YouTube video URL (or type 'exit' to quit): ")?;
             if url.eq_ignore_ascii_case("exit") {
